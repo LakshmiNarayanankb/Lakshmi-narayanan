@@ -1,2 +1,26 @@
 # Lakshmi-narayanan
-Project for embedded intern role
+Project for an embedded intern role
+# ProblemStatemet1
+
+This folder contains the FreeRTOS implementation for Problem Statement 1.
+
+Files:
+- main.c : Example code implementing ExampleTask1 and ExampleTask2 and Queue1.
+
+Behavior:
+- Queue1 created with depth 5 and elements of type Data_t.
+- ExampleTask1 sends a Data_t built from global variables G_DataID and G_DataValue every 500 ms using vTaskDelayUntil for precise timing.
+- ExampleTask2 blocks on the queue and processes messages according to the assignment rules:
+  - dataID == 0 : delete ExampleTask2
+  - dataID == 1 : process DataValue:
+      - DataValue == 0 : increase ExampleTask2 priority by 2
+      - DataValue == 1 : decrease priority back to original (if previously increased)
+      - DataValue == 2 : delete ExampleTask2
+- A SimulatorTask_UpdateGlobals is included to demonstrate runtime changes to G_DataID/G_DataValue. Remove this task if your system updates the globals elsewhere.
+
+Build & Run:
+- This code relies on your platform's FreeRTOS port and C runtime (printf retarget).
+- Add to your project, ensure FreeRTOS config and hardware init (UART) present.
+- Push this directory to the repository path:
+  ProblemStatemet1/main.c
+  ProblemStatemet1/readme.md
