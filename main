@@ -1,0 +1,255 @@
+/* main.c
+   FreeRTOS demo for LIPL_Assessment Problem Statement 1
+   - Creates ExampleTask1 (sends Data_t every 500 ms using vTaskDelayUntil)
+   - Creates ExampleTask2 (receives and acts on data)
+   - Queue1 of 5 elements of type Data_t
+   - A small simulator task is added to change global G_DataID/G_DataValue for demo
+*/
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+
+/* -------------------- Data type -------------------- */
+typedef struct {
+    uint8_t dataID;
+    int32_t DataValue;
+} Data_t;
+
+/* -------------------- Globals -------------------- */
+/* As per assignment: these are assumed to be updated elsewhere.
+   We define them here for a runnable demo. */
+volatile uint8_t G_DataID = 1;
+volatile int32_t G_DataValue = 0;
+
+/* Queue handle */
+QueueHandle_t Queue1 = NULL;
+
+/* Task handles */
+TaskHandle_t TaskHandle_1 = NULL;
+TaskHandle_t TaskHandle_2 = NULL;
+
+/* Forward prototypes */
+void ExampleTask1(void *pV);
+void ExampleTask2(void *pV);
+void SimulatorTask_UpdateGlobals(void *pV);
+
+/* Utility: safe print (depends on your platform's retargeting) */
+static void safe_print(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+}
+
+/* -------------------- ExampleTask1 --------------------
+   Sends data to Queue1 every 500ms. Timing must be exact -> vTaskDelayUntil()
+*/
+void ExampleTask1(void *pV)
+{
+    TickType_t xLastWakeTime;
+    const TickType_t xPeriod = pdMS_TO_TICKS(500); // 500 ms
+    Data_t txData;
+
+    /* Initialize the xLastWakeTime variable with the current time. */
+    xLastWakeTime = xTaskGetTickCount();
+
+    for (;;)
+    {
+        /* Populate structure from global variables (assumed updated elsewhere) */
+        txData.dataID = (uint8_t)G_DataID;
+        txData.DataValue = (int32_t)G_DataValue;
+
+        /* Send to queue (block briefly if full) */
+        if (xQueueSend(Queue1, &txData, pdMS_TO_TICKS(10)) != pdPASS)
+        {
+            safe_print("ExampleTask1: Queue full, failed to send\n");
+        }
+        else
+        {
+            /* Optionally print debug */
+            safe_print("ExampleTask1: Sent dataID=%u, DataValue=%ld\n",
+                       (unsigned)txData.dataID, (long)txData.DataValue);
+        }
+
+        /* Wait exactly until next cycle */
+        vTaskDelayUntil(&xLastWakeTime, xPeriod);
+    }
+}
+
+/* -------------------- ExampleTask2 --------------------
+   Receives data from Queue1 and applies logic:
+   - if dataID == 0 -> delete ExampleTask2
+   - if dataID == 1 -> allow processing of DataValue member
+       - if DataValue == 0 -> increase priority by 2
+       - if DataValue == 1 -> decrease priority (if previously increased)
+       - if DataValue == 2 -> delete ExampleTask2
+   Always prints dataID and DataValue on each evaluation.
+*/
+void ExampleTask2(void *pV)
+{
+    Data_t rxData;
+    UBaseType_t originalPriority;
+    bool priorityIncreased = false;
+
+    /* Save original priority */
+    originalPriority = uxTaskPriorityGet(NULL);
+
+    for (;;)
+    {
+        /* Block indefinitely until data available */
+        if (xQueueReceive(Queue1, &rxData, portMAX_DELAY) == pdPASS)
+        {
+            /* Print received values */
+            safe_print("ExampleTask2: Received -> dataID=%u, DataValue=%ld\n",
+                       (unsigned)rxData.dataID, (long)rxData.DataValue);
+
+            /* Apply logic based on dataID */
+            if (rxData.dataID == 0)
+            {
+                safe_print("ExampleTask2: dataID==0 -> Deleting self.\n");
+                vTaskDelete(NULL); /* delete this task */
+                /* vTaskDelete does not return */
+            }
+            else if (rxData.dataID == 1)
+            {
+                /* Process DataValue member */
+                if (rxData.DataValue == 0)
+                {
+                    /* Increase priority by 2 from creation value */
+                    if (!priorityIncreased)
+                    {
+                        UBaseType_t newPrio = originalPriority + 2;
+                        vTaskPrioritySet(NULL, newPrio);
+                        priorityIncreased = true;
+                        safe_print("ExampleTask2: Priority increased to %u\n", (unsigned)newPrio);
+                    }
+                    else
+                    {
+                        safe_print("ExampleTask2: Priority already increased, no-op\n");
+                    }
+                }
+                else if (rxData.DataValue == 1)
+                {
+                    /* Decrease priority if previously increased */
+                    if (priorityIncreased)
+                    {
+                        vTaskPrioritySet(NULL, originalPriority);
+                        priorityIncreased = false;
+                        safe_print("ExampleTask2: Priority restored to original %u\n", (unsigned)originalPriority);
+                    }
+                    else
+                    {
+                        safe_print("ExampleTask2: Priority not increased earlier, no-op\n");
+                    }
+                }
+                else if (rxData.DataValue == 2)
+                {
+                    safe_print("ExampleTask2: DataValue==2 -> Deleting self.\n");
+                    vTaskDelete(NULL);
+                    /* does not return */
+                }
+                else
+                {
+                    /* Any other DataValue processing, placeholder */
+                    safe_print("ExampleTask2: DataValue %ld processed (no special action)\n", (long)rxData.DataValue);
+                }
+            }
+            else
+            {
+                /* For other dataID values, we print and continue */
+                safe_print("ExampleTask2: Unhandled dataID=%u\n", (unsigned)rxData.dataID);
+            }
+        }
+    }
+}
+
+/* -------------------- SimulatorTask_UpdateGlobals --------------------
+   Optional: changes G_DataID and G_DataValue, so ExampleTask1 sends differing data.
+   This is only for demo and testing; remove in production if external updates exist.
+*/
+void SimulatorTask_UpdateGlobals(void *pV)
+{
+    TickType_t lastWake = xTaskGetTickCount();
+    const TickType_t period = pdMS_TO_TICKS(1000); // every 1 second
+    uint8_t seq = 0;
+
+    for (;;)
+    {
+        /* Cycle through some test values:
+           seq == 0: dataID=1, DataValue=0  -> should increase priority
+           seq == 1: dataID=1, DataValue=1  -> should restore priority
+           seq == 2: dataID=1, DataValue=3  -> processed (no special action)
+           seq == 3: dataID=0, DataValue=0  -> delete ExampleTask2
+           seq == 4: dataID=1, DataValue=2  -> delete ExampleTask2
+        */
+        switch (seq)
+        {
+            case 0:
+                G_DataID = 1; G_DataValue = 0; break;
+            case 1:
+                G_DataID = 1; G_DataValue = 1; break;
+            case 2:
+                G_DataID = 1; G_DataValue = 3; break;
+            case 3:
+                G_DataID = 0; G_DataValue = 0; break;
+            case 4:
+                G_DataID = 1; G_DataValue = 2; break;
+            default:
+                G_DataID = 1; G_DataValue = 0; break;
+        }
+
+        seq = (seq + 1) % 6; /* cycle */
+
+        vTaskDelayUntil(&lastWake, period);
+    }
+}
+
+/* -------------------- main() -------------------- */
+int main(void)
+{
+    /* Hardware init here (clock, UART for printf, etc) - platform specific */
+
+    /* Create queue */
+    Queue1 = xQueueCreate(5, sizeof(Data_t));
+    if (Queue1 == NULL)
+    {
+        /* Queue create failed */
+        safe_print("Failed to create Queue1\n");
+        for (;;);
+    }
+
+    /* Create ExampleTask2 first (so original priority is well-defined) */
+    if (xTaskCreate(ExampleTask2, "ExampleTask2", configMINIMAL_STACK_SIZE + 200,
+                    NULL, tskIDLE_PRIORITY + 2, &TaskHandle_2) != pdPASS)
+    {
+        safe_print("Failed to create ExampleTask2\n");
+        for (;;);
+    }
+
+    /* Create ExampleTask1 */
+    if (xTaskCreate(ExampleTask1, "ExampleTask1", configMINIMAL_STACK_SIZE + 200,
+                    NULL, tskIDLE_PRIORITY + 1, &TaskHandle_1) != pdPASS)
+    {
+        safe_print("Failed to create ExampleTask1\n");
+        for (;;);
+    }
+
+    /* Create Simulator task (optional, demo only) */
+    if (xTaskCreate(SimulatorTask_UpdateGlobals, "SimUpdate", configMINIMAL_STACK_SIZE + 150,
+                    NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
+    {
+        safe_print("Failed to create Simulator task\n");
+    }
+
+    /* Start scheduler */
+    vTaskStartScheduler();
+
+    /* If all is well, scheduler will be running and main will never reach here. */
+    for (;;);
+    return 0;
+}
