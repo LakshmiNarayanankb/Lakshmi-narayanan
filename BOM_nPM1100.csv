@@ -1,0 +1,16 @@
+Part ID,Qty,Part Name / Function,Example Part Number,Supplier,Package,What it Does
+U1,1,nPM1100 Power IC (Main Chip),Nordic nPM1100-QFN24,Mouser / LCSC,QFN-24,Converts 5V to 3V and manages battery charging.
+L1,1,Inductor 2.2 µH (Power Coil),Murata LQH3NP2R2MGR0,LCSC,0805,Works with U1 to make smooth 3V power.
+C1,1,10 µF Capacitor (Output Filter),Murata GRM21BR61A106KE15L,LCSC,0805,Keeps the 3V output stable and clean.
+C2,1,4.7 µF Capacitor (Input Filter),TDK C2012X5R1A475K125AB,LCSC,0805,Smooths the 5V input before it reaches U1.
+C3,1,0.1 µF Capacitor (Noise Filter),Samsung CL21B104KBCNNNC,LCSC,0805,Filters high-frequency noise on U1 pins.
+R1,1,1.5 kΩ Resistor (Charge Current Set),Yageo RC0805FR-071K5L,LCSC,0805,Sets charging current (200 mA) for battery.
+"R2, R3",2,330 Ω Resistors (LED Limit),Yageo RC0805FR-07330RL,LCSC,0805,Limits current through LEDs.
+D1,1,Green LED (Power ON),Everlight 19-217/GHC-YR1S2/3T,LCSC,0805,Lights up when 3V output is active.
+D2,1,Red LED (Charging),Everlight 19-217/R6C-AL1M2VY/3T,LCSC,0805,Lights up while charging the battery.
+J1,1,2-Pin JST Input Connector (5 V IN),JST B2B-PH-K-S,LCSC,JST PH2,Connects external 5V supply.
+J2,1,2-Pin JST Battery Connector,JST B2B-PH-SM4-TB,LCSC,JST PH2,Connects Li-ion battery.
+"R4, R5",2,200 kΩ Resistors (Battery Sensing Divider),Yageo RC0805FR-07200KL,LCSC,0805,Lets MCU measure battery voltage safely.
+R_NTC,1,10 kΩ NTC Thermistor (Battery Temp Sensor),Murata NCP15XH103F03RC,LCSC,0805,Checks battery temperature for safety.
+TP1-TP3,3,"Test Points (VBUS, VOUT, VBAT)",Keystone 5015,LCSC,TP,Helps measure voltage during testing.
+MISC,-,"Mounting holes, silkscreen labels, vias",-,-,-,Mechanical and layout features.
