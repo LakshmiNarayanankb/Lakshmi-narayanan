@@ -24,3 +24,26 @@ Build & Run:
 - Push this directory to the repository path:
   ProblemStatemet1/main.c
   ProblemStatemet1/readme.md
+
+  # ProblemStatement2
+
+  This project is a reference / evaluation PCB using the Nordic nPM1100 Power Management IC.
+It converts 5V input to a regulated 3.0V output and also charges a Li-ion battery at about 200mA.
+
+The design follows the assignment rules:
+
+PCB Size: ≤ 35mm × 35mm
+
+Maximum 4 layers
+
+Only 0805-sized components used (easy for beginners to solder)
+
+All SMD components are top-mounted
+
+Input: 5V / 1A via 2-pin JST connector
+
+Output: 3.0V regulated
+
+LEDs show Power ON and Charging status
+
+Bonus: Battery voltage measurement circuit connected to MCU ADC
